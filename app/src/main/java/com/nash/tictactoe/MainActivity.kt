@@ -12,8 +12,22 @@ import androidx.gridlayout.widget.GridLayout
 class MainActivity : AppCompatActivity() {
   private lateinit var playerTurnTextView: TextView
   private lateinit var gridLayout: GridLayout
+  private lateinit var boardCells: Array<TextView>
   private var currentPlayer = "X"
   private var boardState = Array(9) { "" }
+  private var gameActive = true
+
+  private val winningCombinations = listOf(
+    listOf(0, 1, 2),
+    listOf(3, 4, 5),
+    listOf(6, 7, 8),
+    listOf(0, 3, 6),
+    listOf(1, 4, 7),
+    listOf(2, 5, 8),
+    listOf(0, 4, 8),
+    listOf(2, 4, 6)
+  )
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
@@ -29,21 +43,55 @@ class MainActivity : AppCompatActivity() {
 
     playerTurnTextView = findViewById(R.id.playerTurnTextView)
     gridLayout = findViewById(R.id.gridLayout)
+    boardCells = Array(gridLayout.childCount) { TextView(this) }
+
+    for (i in 0 until gridLayout.childCount) {
+      val cell = gridLayout.getChildAt(i) as TextView
+      cell.setOnClickListener { onCellClicked(it) }
+      this.boardCells[i] = cell
+    }
+
+    playerTurnTextView.text = "Player Turn: $currentPlayer"
   }
 
   private fun switchPlayers() {
     this.currentPlayer = if (this.currentPlayer == "X") "O" else "X"
+    playerTurnTextView.text = "Player Turn: $currentPlayer"
   }
 
-  fun showPlayerType(view: View) {
-    val clickedPositionTextView = view as TextView
-    val clickedIndex = clickedPositionTextView.tag.toString().toInt()
+  private fun onCellClicked(view: View) {
+    if (!gameActive) return
+
+    val cell = view as TextView
+    val clickedIndex = cell.tag.toString().toInt()
 
     if (boardState[clickedIndex].isEmpty()) {
       boardState[clickedIndex] = this.currentPlayer
-      clickedPositionTextView.text = this.currentPlayer
+      cell.text = this.currentPlayer
 
-      this.switchPlayers()
+      if (checkWin()) {
+        playerTurnTextView.text = "Player $currentPlayer Wins!"
+        gameActive = false
+      } else if (checkDraw()) {
+        playerTurnTextView.text = "It's a Draw!"
+        gameActive = false
+      } else {
+        switchPlayers()
+      }
     }
+  }
+
+  private fun checkWin(): Boolean {
+    for (combination in winningCombinations) {
+      val (a, b, c) = combination
+      if (boardState[a].isNotEmpty() && boardState[a] == boardState[b] && boardState[a] == boardState[c]) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private fun checkDraw(): Boolean {
+    return boardState.all { it.isNotEmpty() }
   }
 }
