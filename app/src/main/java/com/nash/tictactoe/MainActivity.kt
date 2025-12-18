@@ -9,14 +9,18 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.gridlayout.widget.GridLayout
 
+enum class PlayerType(val symbol: String) {
+  X("❌"),
+  O("⭕");
+}
+
 class MainActivity : AppCompatActivity() {
   private lateinit var playerTurnTextView: TextView
   private lateinit var gridLayout: GridLayout
   private lateinit var boardCells: Array<TextView>
-  private var currentPlayer = "X"
+  private var currentPlayer = PlayerType.X.symbol
   private var boardState = Array(9) { "" }
   private var gameActive = true
-
   private val winningCombinations = listOf(
     listOf(0, 1, 2),
     listOf(3, 4, 5),
@@ -40,29 +44,38 @@ class MainActivity : AppCompatActivity() {
       insets
     }
 
-
     playerTurnTextView = findViewById(R.id.playerTurnTextView)
     gridLayout = findViewById(R.id.gridLayout)
     boardCells = Array(gridLayout.childCount) { TextView(this) }
 
     for (i in 0 until gridLayout.childCount) {
       val cell = gridLayout.getChildAt(i) as TextView
+
       cell.setOnClickListener { onCellClicked(it) }
       this.boardCells[i] = cell
     }
 
-    playerTurnTextView.text = "Player Turn: $currentPlayer"
+    this.replacePlayerTurnText("Player Turn: $currentPlayer")
   }
 
   private fun switchPlayers() {
-    this.currentPlayer = if (this.currentPlayer == "X") "O" else "X"
-    playerTurnTextView.text = "Player Turn: $currentPlayer"
+    this.currentPlayer =
+      if (this.currentPlayer == PlayerType.X.symbol) PlayerType.O.symbol else PlayerType.X.symbol
+
+    this.replacePlayerTurnText("Player Turn: $currentPlayer")
+  }
+
+  private fun disableCell(cell: TextView) {
+    cell.isEnabled = false
+    cell.alpha = 0.9f
   }
 
   private fun onCellClicked(view: View) {
     if (!gameActive) return
 
     val cell = view as TextView
+    this.disableCell(cell)
+    
     val clickedIndex = cell.tag.toString().toInt()
 
     if (boardState[clickedIndex].isEmpty()) {
@@ -70,10 +83,12 @@ class MainActivity : AppCompatActivity() {
       cell.text = this.currentPlayer
 
       if (checkWin()) {
-        playerTurnTextView.text = "Player $currentPlayer Wins!"
+        this.replacePlayerTurnText("Player $currentPlayer Wins!")
+
         gameActive = false
       } else if (checkDraw()) {
-        playerTurnTextView.text = "It's a Draw!"
+        this.replacePlayerTurnText("It's a Draw!")
+
         gameActive = false
       } else {
         switchPlayers()
@@ -81,17 +96,13 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun checkWin(): Boolean {
-    for (combination in winningCombinations) {
-      val (a, b, c) = combination
-      if (boardState[a].isNotEmpty() && boardState[a] == boardState[b] && boardState[a] == boardState[c]) {
-        return true
-      }
-    }
-    return false
+  private fun checkWin() = winningCombinations.any { (a, b, c) ->
+    boardState[a].isNotEmpty() && boardState[a] == boardState[b] && boardState[a] == boardState[c]
   }
 
-  private fun checkDraw(): Boolean {
-    return boardState.all { it.isNotEmpty() }
+  private fun checkDraw() = boardState.all { it.isNotEmpty() }
+
+  private fun replacePlayerTurnText(updatedPlayerTurnText: String) {
+    playerTurnTextView.text = updatedPlayerTurnText
   }
 }
