@@ -3,12 +3,14 @@ package com.nash.tictactoe
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.View
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.gridlayout.widget.GridLayout
+import android.widget.Button
 
 enum class PlayerType(val label: String) {
   X("❌"),
@@ -29,6 +31,8 @@ class MainActivity : AppCompatActivity() {
   private var currentPlayer = PlayerType.X
   private var boardState = Array(9) { "" }
   private var gameActive = true
+
+  private lateinit var restartButton: Button
   private val winningCombinations = listOf(
     listOf(0, 1, 2),
     listOf(3, 4, 5),
@@ -66,9 +70,26 @@ class MainActivity : AppCompatActivity() {
     playerTurnTextView = findViewById(R.id.playerTurnTextView)
     gridLayout = findViewById(R.id.gridLayout)
     boardCells = Array(gridLayout.childCount) { TextView(this) }
+    restartButton = findViewById(R.id.restart_button)
+    restartButton.setOnClickListener { restartGame() }
 
     initializeBoard()
     replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
+  }
+
+
+  private fun restartGame() {
+    boardState = Array(9) { "" }
+    gameActive = true
+    currentPlayer = PlayerType.X
+    replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
+    restartButton.visibility = View.GONE
+    for (i in 0 until gridLayout.childCount) {
+      val cellTextView = gridLayout.getChildAt(i) as TextView
+      cellTextView.text = ""
+      setCellState(cellTextView, CellState.NORMAL)
+      cellTextView.isEnabled = true
+    }
   }
 
   private fun switchPlayers() {
@@ -95,10 +116,12 @@ class MainActivity : AppCompatActivity() {
         replacePlayerTurnText("Player ${currentPlayer.label} Wins!")
 
         gameActive = false
+        restartButton.visibility = View.VISIBLE
       } else if (checkDraw()) {
         replacePlayerTurnText("It's a Draw!")
 
         gameActive = false
+        restartButton.visibility = View.VISIBLE
       } else {
         switchPlayers()
       }
