@@ -1,7 +1,8 @@
 package com.nash.tictactoe
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.view.View
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -9,16 +10,23 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.gridlayout.widget.GridLayout
 
-enum class PlayerType(val symbol: String) {
+enum class PlayerType(val label: String) {
   X("❌"),
-  O("⭕");
+  O("⚫")
+}
+
+enum class CellState {
+  NORMAL,
+  SELECTED,
+  WINNING,
+  DISABLED
 }
 
 class MainActivity : AppCompatActivity() {
   private lateinit var playerTurnTextView: TextView
   private lateinit var gridLayout: GridLayout
   private lateinit var boardCells: Array<TextView>
-  private var currentPlayer = PlayerType.X.symbol
+  private var currentPlayer = PlayerType.X
   private var boardState = Array(9) { "" }
   private var gameActive = true
   private val winningCombinations = listOf(
@@ -31,6 +39,17 @@ class MainActivity : AppCompatActivity() {
     listOf(0, 4, 8),
     listOf(2, 4, 6)
   )
+
+  private fun initializeBoard() {
+    for (i in 0 until gridLayout.childCount) {
+      val cellTextView = gridLayout.getChildAt(i) as TextView
+
+      cellTextView.setOnClickListener { onCellClicked(it as TextView) }
+      setCellState(cellTextView, CellState.NORMAL)
+
+      this.boardCells[i] = cellTextView
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -48,46 +67,36 @@ class MainActivity : AppCompatActivity() {
     gridLayout = findViewById(R.id.gridLayout)
     boardCells = Array(gridLayout.childCount) { TextView(this) }
 
-    for (i in 0 until gridLayout.childCount) {
-      val cell = gridLayout.getChildAt(i) as TextView
-
-      cell.setOnClickListener { onCellClicked(it) }
-      this.boardCells[i] = cell
-    }
-
-    this.replacePlayerTurnText("Player Turn: $currentPlayer")
+    initializeBoard()
+    replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
   }
 
   private fun switchPlayers() {
     this.currentPlayer =
-      if (this.currentPlayer == PlayerType.X.symbol) PlayerType.O.symbol else PlayerType.X.symbol
+      if (currentPlayer == PlayerType.X) PlayerType.O else PlayerType.X
 
-    this.replacePlayerTurnText("Player Turn: $currentPlayer")
+    replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
   }
 
-  private fun disableCell(cell: TextView) {
-    cell.isEnabled = false
-    cell.alpha = 0.9f
-  }
-
-  private fun onCellClicked(view: View) {
+  private fun onCellClicked(cellTextView: TextView) {
     if (!gameActive) return
 
-    val cell = view as TextView
-    this.disableCell(cell)
-    
-    val clickedIndex = cell.tag.toString().toInt()
+    setCellState(cellTextView, CellState.SELECTED)
+    val clickedIndex = cellTextView.tag.toString().toInt()
 
     if (boardState[clickedIndex].isEmpty()) {
-      boardState[clickedIndex] = this.currentPlayer
-      cell.text = this.currentPlayer
+      boardState[clickedIndex] = currentPlayer.label
+      cellTextView.text = currentPlayer.label
 
-      if (checkWin()) {
-        this.replacePlayerTurnText("Player $currentPlayer Wins!")
+      val winningCombination = checkWin()
+
+      if (winningCombination != null) {
+        handleWin(winningCombination)
+        replacePlayerTurnText("Player ${currentPlayer.label} Wins!")
 
         gameActive = false
       } else if (checkDraw()) {
-        this.replacePlayerTurnText("It's a Draw!")
+        replacePlayerTurnText("It's a Draw!")
 
         gameActive = false
       } else {
@@ -96,13 +105,46 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
-  private fun checkWin() = winningCombinations.any { (a, b, c) ->
-    boardState[a].isNotEmpty() && boardState[a] == boardState[b] && boardState[a] == boardState[c]
+  private fun handleWin(winningCombination: List<Int>) {
+    for (index in winningCombination) setCellState(boardCells[index], CellState.WINNING)
+
+    for ((_, cell) in boardCells.withIndex().filter { it.index !in winningCombination })
+      setCellState(cell, CellState.DISABLED)
   }
+
+  private fun checkWin() = winningCombinations
+    .firstOrNull { (a, b, c) ->
+      boardState[a].takeIf { it.isNotEmpty() }?.let { it == boardState[b] && it == boardState[c] }
+        ?: false
+    }
 
   private fun checkDraw() = boardState.all { it.isNotEmpty() }
 
   private fun replacePlayerTurnText(updatedPlayerTurnText: String) {
     playerTurnTextView.text = updatedPlayerTurnText
   }
+
+  private fun setCellState(cellTextView: TextView, cellState: CellState) {
+    cellTextView.background = GradientDrawable().apply {
+      shape = GradientDrawable.RECTANGLE
+      cornerRadius = 16f
+      setStroke(6, Color.BLACK)
+
+      when (cellState) {
+        CellState.NORMAL -> setColor(Color.TRANSPARENT)
+
+        CellState.SELECTED -> {
+          cellTextView.isEnabled = false
+
+          setColor(Color.LTGRAY)
+        }
+
+        CellState.WINNING -> setColor(Color.parseColor("#FF4CAF50"))
+
+        CellState.DISABLED -> setColor(Color.parseColor("#6E7786E6"))
+      }
+    }
+  }
 }
+
+
