@@ -4,13 +4,13 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.gridlayout.widget.GridLayout
-import android.widget.Button
 
 enum class PlayerType(val label: String) {
   X("❌"),
@@ -24,15 +24,19 @@ enum class CellState {
   DISABLED
 }
 
+val INITIAL_BOARD_STATE = Array(9) { "" }
+val INITIAL_PLAYER = PlayerType.X
+
 class MainActivity : AppCompatActivity() {
   private lateinit var playerTurnTextView: TextView
   private lateinit var gridLayout: GridLayout
   private lateinit var boardCells: Array<TextView>
-  private var currentPlayer = PlayerType.X
-  private var boardState = Array(9) { "" }
+  private lateinit var restartButton: Button
+
+  private var currentPlayer = INITIAL_PLAYER
+  private var boardState = INITIAL_BOARD_STATE
   private var gameActive = true
 
-  private lateinit var restartButton: Button
   private val winningCombinations = listOf(
     listOf(0, 1, 2),
     listOf(3, 4, 5),
@@ -67,25 +71,27 @@ class MainActivity : AppCompatActivity() {
       insets
     }
 
-    playerTurnTextView = findViewById(R.id.playerTurnTextView)
-    gridLayout = findViewById(R.id.gridLayout)
-    boardCells = Array(gridLayout.childCount) { TextView(this) }
-    restartButton = findViewById(R.id.restart_button)
-    restartButton.setOnClickListener { restartGame() }
+    this.playerTurnTextView = findViewById(R.id.playerTurnTextView)
+    this.gridLayout = findViewById(R.id.gridLayout)
+    this.boardCells = Array(gridLayout.childCount) { TextView(this) }
+    this.restartButton = findViewById(R.id.restart_button)
+    this.restartButton.setOnClickListener { restartGame() }
 
     initializeBoard()
     replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
   }
 
-
   private fun restartGame() {
-    boardState = Array(9) { "" }
-    gameActive = true
-    currentPlayer = PlayerType.X
+    this.boardState = Array(9) { "" }
+    this.gameActive = true
+    this.currentPlayer = PlayerType.X
+    this.restartButton.visibility = View.GONE
+
     replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
-    restartButton.visibility = View.GONE
+
     for (i in 0 until gridLayout.childCount) {
       val cellTextView = gridLayout.getChildAt(i) as TextView
+
       cellTextView.text = ""
       setCellState(cellTextView, CellState.NORMAL)
       cellTextView.isEnabled = true
@@ -93,46 +99,47 @@ class MainActivity : AppCompatActivity() {
   }
 
   private fun switchPlayers() {
-    this.currentPlayer =
-      if (currentPlayer == PlayerType.X) PlayerType.O else PlayerType.X
+    this.currentPlayer = if (currentPlayer == PlayerType.X) PlayerType.O else PlayerType.X
 
     replacePlayerTurnText("Player Turn: ${currentPlayer.label}")
+  }
+
+  private fun handleCellClick(cellTextView: TextView, clickedIndex: Int) {
+    setCellState(cellTextView, CellState.SELECTED)
+
+    this.boardState[clickedIndex] = currentPlayer.label
+    cellTextView.text = currentPlayer.label
   }
 
   private fun onCellClicked(cellTextView: TextView) {
     if (!gameActive) return
 
-    setCellState(cellTextView, CellState.SELECTED)
     val clickedIndex = cellTextView.tag.toString().toInt()
 
-    if (boardState[clickedIndex].isEmpty()) {
-      boardState[clickedIndex] = currentPlayer.label
-      cellTextView.text = currentPlayer.label
+    if (boardState[clickedIndex].isNotEmpty()) return
 
-      val winningCombination = checkWin()
+    handleCellClick(cellTextView, clickedIndex)
+    val winningCombination = checkWin()
 
-      if (winningCombination != null) {
-        handleWin(winningCombination)
-        replacePlayerTurnText("Player ${currentPlayer.label} Wins!")
+    if (winningCombination != null) handleWin(winningCombination)
+    else if (checkDraw()) handleDraw()
+    else switchPlayers()
+  }
 
-        gameActive = false
-        restartButton.visibility = View.VISIBLE
-      } else if (checkDraw()) {
-        replacePlayerTurnText("It's a Draw!")
+  private fun changeCellsOnWin(winningCombination: List<Int>) {
+    for (index in winningCombination) setCellState(boardCells[index], CellState.WINNING)
 
-        gameActive = false
-        restartButton.visibility = View.VISIBLE
-      } else {
-        switchPlayers()
-      }
-    }
+    val nonWinningCells = boardCells.withIndex().filter { it.index !in winningCombination }
+
+    for ((_, cell) in nonWinningCells) setCellState(cell, CellState.DISABLED)
   }
 
   private fun handleWin(winningCombination: List<Int>) {
-    for (index in winningCombination) setCellState(boardCells[index], CellState.WINNING)
+    changeCellsOnWin(winningCombination)
+    replacePlayerTurnText("Player ${currentPlayer.label} Wins!")
 
-    for ((_, cell) in boardCells.withIndex().filter { it.index !in winningCombination })
-      setCellState(cell, CellState.DISABLED)
+    this.gameActive = false
+    this.restartButton.visibility = View.VISIBLE
   }
 
   private fun checkWin() = winningCombinations
@@ -141,10 +148,17 @@ class MainActivity : AppCompatActivity() {
         ?: false
     }
 
+  private fun handleDraw() {
+    replacePlayerTurnText("It's a Draw!")
+
+    this.gameActive = false
+    this.restartButton.visibility = View.VISIBLE
+  }
+
   private fun checkDraw() = boardState.all { it.isNotEmpty() }
 
   private fun replacePlayerTurnText(updatedPlayerTurnText: String) {
-    playerTurnTextView.text = updatedPlayerTurnText
+    this.playerTurnTextView.text = updatedPlayerTurnText
   }
 
   private fun setCellState(cellTextView: TextView, cellState: CellState) {
